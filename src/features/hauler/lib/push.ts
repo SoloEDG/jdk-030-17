@@ -1,5 +1,5 @@
 import { boxAt } from "./occupancy";
-import { isPassable } from "@/features/gadget";
+import { isPassable } from "@/features/gadget/lib/passable";
 import { addVec } from "@/shared/document";
 import { DIR_VEC, type Dir, type GameDocument, type MoveResult } from "@/shared/types";
 
@@ -10,7 +10,16 @@ export function applyMove(document: GameDocument, dir: Dir): MoveResult {
   const box = boxAt(document, next);
   if (box) {
     const beyond = addVec(box, delta);
-    if (!isPassable(document, beyond, { ignoreBoxId: box.id, ignorePlayer: true })) {
+    // 扛货（推箱）过百叶门时按当前选定货物宽度校验当前真实门形。
+    const requiredWidth = document.level.louverBanks.length
+      ? document.level.haulWidth
+      : undefined;
+    if (!isPassable(document, beyond, {
+      ignoreBoxId: box.id,
+      ignorePlayer: true,
+      requiredWidth,
+      forbidBox: true,
+    })) {
       return { moved: false, pushed: false, reason: "blocked" };
     }
     box.x = beyond.x;

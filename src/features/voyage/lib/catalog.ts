@@ -1,7 +1,9 @@
 import { createId } from "@/shared/document";
 import type {
   BoxKind,
+  ElbowMode,
   FloorMorph,
+  LouverDoor,
   RuntimeLevel,
   TileKind,
 } from "@/shared/types";
@@ -12,7 +14,7 @@ export interface LevelBlueprint {
   blurb: string;
   rows: string[];
   player: { x: number; y: number };
-  boxes: { kind: BoxKind; x: number; y: number }[];
+  boxes: { kind: BoxKind; x: number; y: number; width?: number }[];
   plates: {
     accept: BoxKind;
     x: number;
@@ -22,6 +24,21 @@ export interface LevelBlueprint {
   }[];
   doors: { id: string; x: number; y: number }[];
   floors: { id: string; x: number; y: number; morph: FloorMorph }[];
+  louvers?: LouverDoor[];
+  louverBanks?: LouverBankBlueprint[];
+  haulWidths?: number[];
+}
+
+export interface LouverBankBlueprint {
+  id: string;
+  title: string;
+  wheel: { x: number; y: number };
+  doorIds: string[];
+  front: { slope: number; offset: number };
+  rear: { slope: number; offset: number };
+  switchAt: number[];
+  initialMode?: ElbowMode;
+  initialHand?: number;
 }
 
 function tilesOf(rows: string[]): TileKind[][] {
@@ -30,6 +47,8 @@ function tilesOf(rows: string[]): TileKind[][] {
       if (ch === "#") return "wall";
       if (ch === "*") return "goal";
       if (ch === "~") return "gap";
+      if (ch === "|") return "narrowGap";
+      // L/W/B 是百叶门、手轮、停箱位的标注，底层均为地板。
       return "floor";
     }),
   );
@@ -171,6 +190,96 @@ export const LEVELS: LevelBlueprint[] = [
     ],
     floors: [],
   },
+  {
+    id: "latch-06",
+    title: "双肘百叶",
+    blurb:
+      "隔墙只有两处通道：右端窄口人能绕行、箱子推过去即进死角；箱子只能走中间的百叶。前肘叶角最低 30° 宽货过不去，在 60° 换形点切后肘才能开大。",
+    rows: [
+      "#########",
+      "#.......#",
+      "#.......#",
+      "#.......#",
+      "#.......#",
+      "#####L#|#",
+      "#.......#",
+      "#W....**#",
+      "#########",
+    ],
+    player: { x: 1, y: 1 },
+    boxes: [
+      { kind: "timber", x: 4, y: 2, width: 0.28 },
+      { kind: "timber", x: 5, y: 3, width: 0.28 },
+    ],
+    plates: [],
+    doors: [],
+    floors: [],
+    louvers: [
+      { id: "lv1", x: 5, y: 5, blades: 3, thickness: 0.02 },
+    ],
+    louverBanks: [
+      {
+        id: "bank1",
+        title: "下室手轮",
+        wheel: { x: 2, y: 7 },
+        doorIds: ["lv1"],
+        front: { slope: 0.5, offset: 30 },
+        rear: { slope: 1, offset: 0 },
+        switchAt: [60],
+        initialMode: "front",
+        initialHand: 60,
+      },
+    ],
+    haulWidths: [0.15, 0.28],
+  },
+  {
+    id: "latch-07",
+    title: "转不开的一段",
+    blurb:
+      "叶片收小到 20° 以下就探进东侧邻格，那里停着箱子。宽货要的开度在探入禁区之内，预览只能指出哪一段转不开；换 15% 窄货则在禁区之外就能过门。",
+    rows: [
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##########",
+      "#W.LB...*#",
+      "#........#",
+      "##########",
+    ],
+    player: { x: 1, y: 6 },
+    boxes: [
+      { kind: "timber", x: 4, y: 6, width: 0.295 },
+    ],
+    plates: [],
+    doors: [],
+    floors: [],
+    louvers: [
+      {
+        id: "lv2",
+        x: 3,
+        y: 6,
+        blades: 3,
+        thickness: 0.02,
+        guards: [{ x: 4, y: 6, fromAngle: 20 }],
+      },
+    ],
+    louverBanks: [
+      {
+        id: "bank2",
+        title: "廊口手轮",
+        wheel: { x: 1, y: 6 },
+        doorIds: ["lv2"],
+        front: { slope: 1, offset: 0 },
+        rear: { slope: 1, offset: -30 },
+        switchAt: [],
+        initialMode: "front",
+        initialHand: 90,
+      },
+    ],
+    haulWidths: [0.15, 0.295],
+  },
 ];
 
 export function getLevel(id: string): LevelBlueprint {
@@ -196,5 +305,19 @@ export function hydrate(blueprint: LevelBlueprint): RuntimeLevel {
     })),
     doors: blueprint.doors.map((door) => ({ ...door, open: false })),
     floors: blueprint.floors.map((floor) => ({ ...floor, active: false })),
+    louvers: (blueprint.louvers ?? []).map((louver) => structuredClone(louver)),
+    louverBanks: (blueprint.louverBanks ?? []).map((bank) => ({
+      id: bank.id,
+      title: bank.title,
+      wheel: { ...bank.wheel },
+      doorIds: [...bank.doorIds],
+      front: { ...bank.front },
+      rear: { ...bank.rear },
+      switchAt: [...bank.switchAt],
+      hand: bank.initialHand ?? 0,
+      mode: bank.initialMode ?? "front",
+    })),
+    haulWidths: blueprint.haulWidths ?? [],
+    haulWidth: blueprint.haulWidths?.[0] ?? 0,
   };
 }

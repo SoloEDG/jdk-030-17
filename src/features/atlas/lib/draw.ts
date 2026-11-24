@@ -1,5 +1,14 @@
 import { tileCenter } from "./grid";
-import type { Box, Door, FloorPatch, GameDocument, Plate } from "@/shared/types";
+import { leafAngle } from "@/features/louver";
+import type {
+  Box,
+  Door,
+  FloorPatch,
+  GameDocument,
+  LouverBank,
+  LouverDoor,
+  Plate,
+} from "@/shared/types";
 
 export const TILE = 46;
 
@@ -44,6 +53,11 @@ export function paintStage(ctx: CanvasRenderingContext2D, document: GameDocument
   for (const floor of level.floors) paintFloor(ctx, floor, tile);
   for (const plate of level.plates) paintPlate(ctx, plate, tile);
   for (const door of level.doors) paintDoor(ctx, door, tile);
+  for (const bank of level.louverBanks) paintWheel(ctx, bank, tile);
+  for (const louver of level.louvers) {
+    const bank = level.louverBanks.find((item) => item.doorIds.includes(louver.id));
+    paintLouver(ctx, louver, bank ? leafAngle(bank) : 0, tile);
+  }
   for (const box of level.boxes) paintBox(ctx, box, tile);
   paintPlayer(ctx, level.player.x, level.player.y, tile, document.attempt.status === "cleared");
 }
@@ -72,6 +86,18 @@ function paintTile(
     ctx.fillRect(px, py, tile, tile);
     ctx.strokeStyle = "rgba(201,163,106,0.2)";
     ctx.strokeRect(px + 6, py + 6, tile - 12, tile - 12);
+    return;
+  }
+  if (kind === "narrowGap") {
+    ctx.fillStyle = "#33271b";
+    ctx.fillRect(px + 1, py + 1, tile - 2, tile - 2);
+    ctx.strokeStyle = "rgba(185,194,176,0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px + tile / 2, py + 7);
+    ctx.lineTo(px + tile / 2, py + tile - 7);
+    ctx.stroke();
+    ctx.lineWidth = 1;
     return;
   }
   ctx.fillStyle = kind === "goal" ? "#2c2618" : "#4a3b2a";
@@ -184,4 +210,60 @@ function paintPlayer(
   ctx.arc(c.x + 4, c.y - 3, 2, 0, Math.PI * 2);
   ctx.fillStyle = ink;
   ctx.fill();
+}
+
+function paintWheel(ctx: CanvasRenderingContext2D, bank: LouverBank, tile: number): void {
+  const c = tileCenter(bank.wheel.x, bank.wheel.y, tile);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(c.x, c.y, 15, 0, Math.PI * 2);
+  ctx.fillStyle = "#2a2018";
+  ctx.fill();
+  ctx.strokeStyle = brass;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const rad = ((bank.hand - 90) * Math.PI) / 180;
+  ctx.beginPath();
+  ctx.moveTo(c.x, c.y);
+  ctx.lineTo(c.x + Math.cos(rad) * 12, c.y + Math.sin(rad) * 12);
+  ctx.strokeStyle = bank.mode === "front" ? brass : "#d98a4a";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.fillStyle = brass;
+  ctx.font = "10px ui-serif, Palatino, serif";
+  ctx.textAlign = "center";
+  ctx.fillText("轮", c.x, c.y + 26);
+  ctx.restore();
+}
+
+function paintLouver(
+  ctx: CanvasRenderingContext2D,
+  louver: LouverDoor,
+  angle: number,
+  tile: number,
+): void {
+  const px = louver.x * tile;
+  const py = louver.y * tile;
+  ctx.save();
+  ctx.fillStyle = "rgba(14,11,8,0.55)";
+  ctx.fillRect(px + 2, py + 2, tile - 4, tile - 4);
+  const inset = 5;
+  const span = tile - inset * 2;
+  const gap = span / louver.blades;
+  const rad = (angle * Math.PI) / 180;
+  const dx = Math.sin(rad) * gap * 0.9;
+  const open = Math.cos(rad) > 0.35;
+  ctx.strokeStyle = open ? "#b9c2b0" : "#8a6a44";
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < louver.blades; i += 1) {
+    const cy = py + inset + gap * (i + 0.5);
+    ctx.beginPath();
+    ctx.moveTo(px + inset - dx, cy - gap * 0.32);
+    ctx.lineTo(px + inset + span + dx, cy + gap * 0.32);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = brass;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(px + 2, py + 2, tile - 4, tile - 4);
+  ctx.restore();
 }

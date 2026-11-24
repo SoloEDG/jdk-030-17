@@ -4,8 +4,11 @@ const items = [
   { name: "地板", swatch: "#4a3b2a" },
   { name: "目标", swatch: "#7d9b6a" },
   { name: "缺口", swatch: "#0b0907" },
+  { name: "窄缝（仅人过）", swatch: "#33271b" },
   { name: "门闩", swatch: "#c9a36a" },
   { name: "架桥", swatch: "#6a5638" },
+  { name: "百叶门", swatch: "#b9c2b0" },
+  { name: "手轮", swatch: "#2a2018" },
 ];
 </script>
 
